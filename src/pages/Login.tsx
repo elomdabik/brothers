@@ -30,6 +30,16 @@ const getAuthErrorMessage = (error: unknown) => {
   if (!(error instanceof Error)) return "حصل خطأ غير متوقع. حاول مرة أخرى.";
 
   const authError = error as Error & { code?: string };
+  const normalizedMessage = authError.message?.toLowerCase() ?? "";
+
+  if (normalizedMessage.includes("email signups are disabled") || normalizedMessage.includes("signups are disabled") || normalizedMessage.includes("sign up is disabled") || normalizedMessage.includes("signups disabled")) {
+    return "تم تعطيل إنشاء الحساب بالبريد الإلكتروني مؤقتًا. تواصل مع الإدارة أو فعّل تسجيل الدخول عبر البريد الإلكتروني في إعدادات Supabase.";
+  }
+
+  if (normalizedMessage.includes("email logins are disabled") || normalizedMessage.includes("logins are disabled") || normalizedMessage.includes("login is disabled") || normalizedMessage.includes("logins disabled")) {
+    return "تم تعطيل تسجيل الدخول بالبريد الإلكتروني مؤقتًا. تواصل مع الإدارة أو فعّل تسجيل الدخول عبر البريد الإلكتروني في إعدادات Supabase.";
+  }
+
   switch (authError.code) {
     case "invalid_credentials":
       return "البريد الإلكتروني أو كلمة المرور غير صحيحة. تأكد من البيانات أو أنشئ كلمة مرور جديدة.";
