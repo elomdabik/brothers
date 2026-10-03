@@ -1,0 +1,236 @@
+{
+  "version": 1,
+  "sdk_version": "3.0.4",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://zdpdxthzzwsogilhxnyz.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "my-app-mcp",
+      "version": "0.1.0",
+      "title": "الاخوه لتجهيزات العرائس"
+    },
+    "tools": [
+      {
+        "name": "list_products",
+        "title": "List products",
+        "description": "List or search the store catalog. Optionally filter by category or by a text query matching the product name, internal code, or international code.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Text to match in name or product codes."
+            },
+            "category": {
+              "type": "string",
+              "description": "Exact category name to filter by."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "description": "Maximum rows to return (default 20)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_product",
+        "title": "Get product",
+        "description": "Fetch one product with all its details, by id or by internal code.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Product id."
+            },
+            "internal_code": {
+              "type": "string",
+              "description": "Internal product code."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_offers",
+        "title": "List offers",
+        "description": "List the store's promotional offers. By default only active, non-expired offers.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "include_inactive": {
+              "type": "boolean",
+              "description": "Include inactive and expired offers (default false)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_product",
+        "title": "Create product",
+        "description": "Add a new product to the store catalog.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Product name."
+            },
+            "category": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Product category."
+            },
+            "internal_code": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Internal product code (required)."
+            },
+            "price": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Retail selling price."
+            },
+            "wholesale_price": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Wholesale price."
+            },
+            "purchase_price": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Purchase cost price."
+            },
+            "international_code": {
+              "type": "string",
+              "description": "International barcode (optional)."
+            },
+            "sizes": {
+              "type": "string",
+              "description": "Available sizes, free text."
+            },
+            "specifications": {
+              "type": "string",
+              "description": "Product specifications, free text."
+            },
+            "image_url": {
+              "type": "string",
+              "format": "uri",
+              "description": "Main image URL."
+            }
+          },
+          "required": [
+            "name",
+            "category",
+            "internal_code",
+            "price"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "update_product",
+        "title": "Update product",
+        "description": "Update fields of an existing product. Only the fields you pass are changed.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Id of the product to update."
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "category": {
+              "type": "string",
+              "minLength": 1
+            },
+            "internal_code": {
+              "type": "string",
+              "minLength": 1
+            },
+            "international_code": {
+              "type": "string"
+            },
+            "price": {
+              "type": "number",
+              "minimum": 0
+            },
+            "wholesale_price": {
+              "type": "number",
+              "minimum": 0
+            },
+            "purchase_price": {
+              "type": "number",
+              "minimum": 0
+            },
+            "sizes": {
+              "type": "string"
+            },
+            "specifications": {
+              "type": "string"
+            },
+            "image_url": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
