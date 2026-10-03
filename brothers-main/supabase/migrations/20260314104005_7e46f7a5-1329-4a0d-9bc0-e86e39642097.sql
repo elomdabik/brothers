@@ -1,1 +1,0 @@
-ALTER TABLE public.products ADD COLUMN wholesale_price text;
