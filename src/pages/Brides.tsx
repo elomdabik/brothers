@@ -1,6 +1,7 @@
 import { Crown, Star, Gem, ArrowLeft } from "lucide-react";
 import { getBridePackageWhatsAppUrl } from "@/lib/whatsapp";
 import Layout from "@/components/Layout";
+import { useRequireLogin } from "@/hooks/useRequireLogin";
 
 const packages = [
   {
@@ -26,10 +27,12 @@ const packages = [
   },
 ];
 
-const Brides = () => (
-  <Layout>
-    <section className="py-20">
-      <div className="container mx-auto px-4">
+const Brides = () => {
+  const requireLogin = useRequireLogin();
+  return (
+    <Layout>
+      <section className="py-20">
+        <div className="container mx-auto px-4">
         <h1 className="text-4xl md:text-5xl font-cairo font-extrabold text-center mb-4">
           تجهيز <span className="text-gradient-gold">العرائس</span>
         </h1>
@@ -67,6 +70,7 @@ const Brides = () => (
               </ul>
               <a
                 href={getBridePackageWhatsAppUrl(pkg.name)}
+                onClick={requireLogin}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-opacity hover:opacity-90 ${
@@ -81,9 +85,10 @@ const Brides = () => (
             </div>
           ))}
         </div>
-      </div>
-    </section>
-  </Layout>
-);
+        </div>
+      </section>
+    </Layout>
+  );
+};
 
 export default Brides;

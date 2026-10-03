@@ -7,12 +7,14 @@ import { getProducts } from "@/services/db/products";
 import Layout from "@/components/Layout";
 import type { Product } from "@/components/ProductDetailDialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useRequireLogin } from "@/hooks/useRequireLogin";
 
 const Products = () => {
   const [selectedCat, setSelectedCat] = useState("الكل");
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { isWholesale } = useAuth();
+  const { canSeeWholesale } = useAuth();
+  const requireLogin = useRequireLogin();
 
   const { data: productsData = [] } = useQuery({
     queryKey: ["products"],
@@ -92,15 +94,15 @@ const Products = () => {
                   {p.sizes && <p className="text-xs text-muted-foreground mb-3">📐 {p.sizes}</p>}
                   <div className="flex items-center justify-between">
                     <span className="text-xl font-bold text-primary">
-                      {isWholesale ? (p.wholesale_price || p.price) : p.price}
+                      {canSeeWholesale ? (p.wholesale_price || p.price) : p.price}
                     </span>
-                    {isWholesale && <span className="text-xs text-muted-foreground">جملة</span>}
+                    {canSeeWholesale && <span className="text-xs text-muted-foreground">جملة</span>}
                   </div>
                   <a
                     href={getProductWhatsAppUrl(p.name)}
+                    onClick={(e) => { e.stopPropagation(); requireLogin(e); }}
                     target="_blank"
                     rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
                     className="mt-4 w-full gradient-gold text-primary-foreground py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-gold hover:opacity-90 transition-opacity"
                   >
                     <MessageCircle className="w-4 h-4" />

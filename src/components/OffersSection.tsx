@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { getProductWhatsAppUrl } from "@/lib/whatsapp";
 import { getActiveOffers } from "@/services/db/offers";
+import { useRequireLogin } from "@/hooks/useRequireLogin";
 
 type Offer = {
   id: string;
@@ -64,6 +65,7 @@ const countdownVariants = {
 };
 
 const OffersSection = () => {
+  const requireLogin = useRequireLogin();
   const { days, hours, minutes, seconds } = useCountdown();
   const { data: offersData = [], isLoading } = useQuery({
     queryKey: ["offers", "active"],
@@ -127,7 +129,7 @@ const OffersSection = () => {
                 <span className="text-2xl font-extrabold text-gold-light">{o.new_price} ج.م</span>
                 <span className="text-sm text-background/40 line-through">{o.old_price} ج.م</span>
               </div>
-              <motion.a href={getProductWhatsAppUrl(o.product_name)} target="_blank" rel="noopener noreferrer" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="w-full gradient-gold text-primary-foreground py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-gold">
+              <motion.a href={getProductWhatsAppUrl(o.product_name)} onClick={requireLogin} target="_blank" rel="noopener noreferrer" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="w-full gradient-gold text-primary-foreground py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-gold">
                 <MessageCircle className="w-4 h-4" />
                 اطلب الآن
               </motion.a>

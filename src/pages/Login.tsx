@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 
@@ -25,8 +26,14 @@ const signupSchema = z.object({
   path: ["confirmPassword"],
 });
 
-const Login = () => {
+type LoginProps = {
+  embedded?: boolean;
+  onSuccess?: () => void;
+};
+
+const Login = ({ embedded = false, onSuccess }: LoginProps) => {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const next = safeNext(params.get("next"));
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [displayName, setDisplayName] = useState("");
@@ -53,7 +60,11 @@ const Login = () => {
         toast({ title: "تعذّر تسجيل الدخول", description: error.message, variant: "destructive" });
         return;
       }
-      window.location.href = next;
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        navigate(next, { replace: true });
+      }
     } else {
       const parsed = signupSchema.safeParse({ displayName, email, phone, password, confirmPassword });
       if (!parsed.success) {
@@ -81,87 +92,101 @@ const Login = () => {
     }
   };
 
-  return (
-    <main dir="rtl" className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <div className="w-full max-w-sm bg-card border border-border rounded-xl p-6 shadow-warm space-y-4">
+  const form = (
+    <div className={embedded ? "w-full space-y-4" : "w-full max-w-sm space-y-4 rounded-xl border border-border bg-card p-6 shadow-warm"}>
+      {embedded ? (
+        <DialogHeader className="text-center">
+          <DialogTitle className="text-xl font-cairo font-bold text-gradient-gold">
+            {mode === "signin" ? "تسجيل الدخول" : "إنشاء حساب"}
+          </DialogTitle>
+        </DialogHeader>
+      ) : (
         <h1 className="text-xl font-cairo font-bold text-gradient-gold text-center">
           {mode === "signin" ? "تسجيل الدخول" : "إنشاء حساب"}
         </h1>
-        <form onSubmit={submit} className="space-y-3">
-          {mode === "signup" && (
-            <Input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="الاسم الكامل"
-              autoComplete="name"
-              minLength={2}
-              maxLength={100}
-              required
-            />
-          )}
+      )}
+      <form onSubmit={submit} className="space-y-3">
+        {mode === "signup" && (
           <Input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="البريد الإلكتروني"
-            autoComplete="email"
-            maxLength={255}
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="الاسم الكامل"
+            autoComplete="name"
+            minLength={2}
+            maxLength={100}
             required
           />
-          {mode === "signup" && (
-            <Input
-              type="tel"
-              inputMode="numeric"
-              dir="rtl"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
-              placeholder="رقم الهاتف (مثال: 01012345678)"
-              autoComplete="tel"
-              pattern="01[0125][0-9]{8}"
-              maxLength={11}
-              required
-            />
-          )}
+        )}
+        <Input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="البريد الإلكتروني"
+          autoComplete="email"
+          maxLength={255}
+          required
+        />
+        {mode === "signup" && (
+          <Input
+            type="tel"
+            inputMode="numeric"
+            dir="rtl"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
+            placeholder="رقم الهاتف (مثال: 01012345678)"
+            autoComplete="tel"
+            pattern="01[0125][0-9]{8}"
+            maxLength={11}
+            required
+          />
+        )}
+        <Input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="كلمة المرور"
+          autoComplete={mode === "signin" ? "current-password" : "new-password"}
+          minLength={mode === "signup" ? 8 : undefined}
+          maxLength={72}
+          required
+        />
+        {mode === "signup" && (
           <Input
             type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="كلمة المرور"
-            autoComplete={mode === "signin" ? "current-password" : "new-password"}
-            minLength={mode === "signup" ? 8 : undefined}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="تأكيد كلمة المرور"
+            autoComplete="new-password"
+            minLength={8}
             maxLength={72}
             required
           />
-          {mode === "signup" && (
-            <Input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="تأكيد كلمة المرور"
-              autoComplete="new-password"
-              minLength={8}
-              maxLength={72}
-              required
-            />
-          )}
-          <Button
-            type="submit"
-            disabled={busy}
-            className="w-full gradient-gold text-primary-foreground font-bold"
-          >
-            {mode === "signin" ? "دخول" : "إنشاء الحساب"}
-          </Button>
-        </form>
+        )}
         <Button
-          type="button"
-          variant="ghost"
-          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-          className="w-full text-sm text-muted-foreground hover:text-foreground"
+          type="submit"
+          disabled={busy}
+          className="w-full gradient-gold text-primary-foreground font-bold"
         >
-          {mode === "signin" ? "ليس لديك حساب؟ إنشاء حساب" : "لديك حساب؟ تسجيل الدخول"}
+          {mode === "signin" ? "دخول" : "إنشاء الحساب"}
         </Button>
-      </div>
+      </form>
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+        className="w-full text-sm text-muted-foreground hover:text-foreground"
+      >
+        {mode === "signin" ? "ليس لديك حساب؟ إنشاء حساب" : "لديك حساب؟ تسجيل الدخول"}
+        </Button>
+    </div>
+  );
+
+  return embedded ? (
+    form
+  ) : (
+    <main dir="rtl" className="min-h-screen flex items-center justify-center p-4 bg-background">
+      {form}
     </main>
   );
 };

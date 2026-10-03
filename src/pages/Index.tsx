@@ -10,6 +10,8 @@ import Layout from "@/components/Layout";
 import OffersSection from "@/components/OffersSection";
 import type { Product } from "@/components/ProductDetailDialog";
 import { useNavigate } from "react-router-dom";
+import { useRequireLogin } from "@/hooks/useRequireLogin";
+import { useAuth } from "@/hooks/useAuth";
 
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.12 } } };
 const fadeUp = {
@@ -46,6 +48,8 @@ const ProductsCarousel = ({ products, onProductClick }: { products: Product[]; o
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const requireLogin = useRequireLogin();
+  const { canSeeWholesale } = useAuth();
 
   const updateScrollState = () => {
     const el = scrollRef.current;
@@ -108,13 +112,16 @@ const ProductsCarousel = ({ products, onProductClick }: { products: Product[]; o
                   </ul>
                 )}
                 <div className="flex items-center justify-between">
-                  <span className="text-xl font-bold text-primary">{p.price}</span>
+                  <span className="text-xl font-bold text-primary">
+                    {canSeeWholesale ? (p.wholesale_price || p.price) : p.price}
+                  </span>
                 </div>
               </div>
             </div>
             <div className="px-5 pb-5">
               <a
                 href={getProductWhatsAppUrl(p.name)}
+                onClick={(e) => { e.stopPropagation(); requireLogin(e); }}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full gradient-gold text-primary-foreground py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-gold hover:opacity-90 transition-opacity"

@@ -6,6 +6,7 @@ import { getProductById, getSimilarProducts } from "@/services/db/products";
 import { getProductWhatsAppUrl } from "@/lib/whatsapp";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/hooks/useAuth";
+import { useRequireLogin } from "@/hooks/useRequireLogin";
 import { Button } from "@/components/ui/button";
 
 type Product = {
@@ -34,7 +35,8 @@ const getAllImages = (p: Product) => {
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isWholesale, isAdmin } = useAuth();
+  const { canSeeWholesale, isAdmin } = useAuth();
+  const requireLogin = useRequireLogin();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
@@ -160,12 +162,12 @@ const ProductDetail = () => {
                     🛒 سعر الشراء: {product.purchase_price}
                   </div>
                 )}
-                {(isAdmin || isWholesale) && product.wholesale_price && (
+                {canSeeWholesale && product.wholesale_price && (
                   <div className="text-base font-semibold text-accent-foreground bg-accent px-3 py-2 rounded-md">
                     💰 سعر الجملة: {product.wholesale_price}
                   </div>
                 )}
-                {!isWholesale && (
+                {!canSeeWholesale && (
                   <div className="text-3xl font-bold text-primary">
                     🏷️ {product.price}
                   </div>
@@ -200,6 +202,7 @@ const ProductDetail = () => {
 
               <a
                 href={getProductWhatsAppUrl(product.name)}
+                onClick={requireLogin}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full gradient-gold text-primary-foreground py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-gold hover:opacity-90 transition-opacity"
@@ -233,7 +236,7 @@ const ProductDetail = () => {
                     <div className="p-4">
                       <h3 className="font-bold text-sm mb-2 line-clamp-2">{p.name}</h3>
                       <span className="text-lg font-bold text-primary">
-                        {isWholesale ? (p.wholesale_price || p.price) : p.price}
+                        {canSeeWholesale ? (p.wholesale_price || p.price) : p.price}
                       </span>
                     </div>
                   </Link>

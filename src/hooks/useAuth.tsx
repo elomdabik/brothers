@@ -1,75 +1,119 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import type { User } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 
-// Simple password-protected view modes — no real authentication.
-// Wholesale password unlocks the wholesale price view (shows wholesale + retail).
-// Admin password unlocks the admin dashboard AND the wholesale view.
-export const WHOLESALE_PASSWORD = "jumla2026";
-export const ADMIN_PASSWORD = "admin2026";
-
-const LS_WHOLESALE = "view_mode_wholesale";
-const LS_ADMIN = "view_mode_admin";
+type AppRole = Database["public"]["Enums"]["app_role"];
 
 type AuthContextType = {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  authError: string | null;
   isWholesale: boolean;
+  isSupervisor: boolean;
   isAdmin: boolean;
   canSeeWholesale: boolean;
   canManageProducts: boolean;
-  unlockWholesale: (password: string) => boolean;
-  unlockAdmin: (password: string) => boolean;
-  lockWholesale: () => void;
-  lockAdmin: () => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [isWholesale, setIsWholesale] = useState<boolean>(false);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [roles, setRoles] = useState<AppRole[]>([]);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [rolesLoading, setRolesLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    setIsWholesale(localStorage.getItem(LS_WHOLESALE) === "1");
-    setIsAdmin(localStorage.getItem(LS_ADMIN) === "1");
+    let active = true;
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return;
+      if (error) console.error("[auth] failed to restore session", error);
+      setUser(data.session?.user ?? null);
+      setSessionLoading(false);
+      if (!data.session?.user) setRolesLoading(false);
+    }).catch((error: unknown) => {
+      console.error("[auth] failed to restore session", error);
+      if (active) {
+        setSessionLoading(false);
+        setRolesLoading(false);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const nextUser = session?.user ?? null;
+      setUser(nextUser);
+      setRoles([]);
+      setAuthError(null);
+      setRolesLoading(!!nextUser);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const unlockWholesale = (password: string) => {
-    if (password === WHOLESALE_PASSWORD || password === ADMIN_PASSWORD) {
-      localStorage.setItem(LS_WHOLESALE, "1");
-      setIsWholesale(true);
-      return true;
+  useEffect(() => {
+    let active = true;
+    if (!user) {
+      setRoles([]);
+      setAuthError(null);
+      setRolesLoading(false);
+      return () => {
+        active = false;
+      };
     }
-    return false;
-  };
 
-  const unlockAdmin = (password: string) => {
-    if (password === ADMIN_PASSWORD) {
-      localStorage.setItem(LS_ADMIN, "1");
-      setIsAdmin(true);
-      return true;
-    }
-    return false;
-  };
+    setRolesLoading(true);
+    setAuthError(null);
+    supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          console.error("[auth] failed to load user roles", error);
+          setRoles([]);
+          setAuthError(error.message);
+          setRolesLoading(false);
+          return;
+        }
+        setRoles((data ?? []).map(({ role }) => role));
+        setRolesLoading(false);
+      }).catch((error: unknown) => {
+        if (!active) return;
+        console.error("[auth] failed to load user roles", error);
+        setRoles([]);
+        setAuthError("تعذّر تحميل صلاحيات الحساب");
+        setRolesLoading(false);
+      });
 
-  const lockWholesale = () => {
-    localStorage.removeItem(LS_WHOLESALE);
-    setIsWholesale(false);
-  };
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
-  const lockAdmin = () => {
-    localStorage.removeItem(LS_ADMIN);
-    setIsAdmin(false);
-  };
+  const isAdmin = roles.includes("admin");
+  const isSupervisor = roles.includes("product_manager");
+  const isWholesale = roles.includes("wholesale");
 
   return (
     <AuthContext.Provider
       value={{
+        user,
+        isAuthenticated: !!user,
+        isLoading: sessionLoading || rolesLoading,
+        authError,
         isWholesale,
+        isSupervisor,
         isAdmin,
-        canSeeWholesale: isWholesale || isAdmin,
-        canManageProducts: isAdmin,
-        unlockWholesale,
-        unlockAdmin,
-        lockWholesale,
-        lockAdmin,
+        canSeeWholesale: isWholesale || isSupervisor || isAdmin,
+        canManageProducts: isAdmin || isSupervisor,
       }}
     >
       {children}

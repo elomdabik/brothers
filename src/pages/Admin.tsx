@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { getProducts } from "@/services/db/products";
@@ -12,7 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Pencil, Plus, LogOut, Upload, ImageIcon, X, Lock } from "lucide-react";
+import type { Database } from "@/integrations/supabase/types";
+import { Trash2, Pencil, Plus, LogOut, Upload, ImageIcon, X, Lock, Users, RefreshCw, Shield, Tag } from "lucide-react";
 import AdminOffers from "@/components/admin/AdminOffers";
 
 type Product = {
@@ -26,10 +27,23 @@ type Product = {
   additional_images: string[] | null;
 };
 
+type RegisteredProfile = {
+  id: string;
+  user_id: string;
+  display_name: string | null;
+  email: string | null;
+  phone: string | null;
+  approved: boolean;
+  created_at: string;
+};
+
+type ManagedRole = "product_manager" | "wholesale";
+type AppRole = Database["public"]["Enums"]["app_role"];
+
 const emptyProduct = { name: "", category: "", price: "", purchase_price: "", wholesale_price: "", benefits: "", sizes: "", image_url: "", internal_code: "", international_code: "", specifications: "" };
 
 const Admin = () => {
-  const { isAdmin, unlockAdmin, lockAdmin } = useAuth();
+  const { isAuthenticated, isAdmin, canManageProducts, isLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
@@ -43,25 +57,75 @@ const Admin = () => {
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState("products");
   const [searchQuery, setSearchQuery] = useState("");
-  const [pw, setPw] = useState("");
+  const [profiles, setProfiles] = useState<RegisteredProfile[]>([]);
+  const [profileRoles, setProfileRoles] = useState<Record<string, AppRole[]>>({});
+  const [profilesLoading, setProfilesLoading] = useState(false);
+  const [profilesError, setProfilesError] = useState<string | null>(null);
+  const [updatingRole, setUpdatingRole] = useState<string | null>(null);
 
   const fetchProducts = async () => {
     const data = await getProducts({});
     setProducts(data as unknown as Product[]);
   };
 
-  useEffect(() => {
-    if (isAdmin) fetchProducts();
-  }, [isAdmin]);
+  const fetchProfiles = async () => {
+    setProfilesLoading(true);
+    setProfilesError(null);
+    const [profilesResult, rolesResult] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, user_id, display_name, email, phone, approved, created_at")
+        .order("created_at", { ascending: false }),
+      supabase.from("user_roles").select("user_id, role"),
+    ]);
 
-  const handleUnlock = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!unlockAdmin(pw)) {
-      toast({ title: "كلمة سر خاطئة", variant: "destructive" });
-    } else {
-      toast({ title: "✓ مرحباً بك في لوحة التحكم" });
+    setProfilesLoading(false);
+    if (profilesResult.error || rolesResult.error) {
+      const error = profilesResult.error ?? rolesResult.error;
+      setProfilesError(error.message);
+      return;
     }
-    setPw("");
+    setProfiles(profilesResult.data ?? []);
+    const rolesByUser: Record<string, AppRole[]> = {};
+    for (const { user_id, role } of rolesResult.data ?? []) {
+      (rolesByUser[user_id] ??= []).push(role);
+    }
+    setProfileRoles(rolesByUser);
+  };
+
+  useEffect(() => {
+    if (canManageProducts) fetchProducts();
+  }, [canManageProducts]);
+
+  useEffect(() => {
+    if (isAdmin && activeTab === "users") void fetchProfiles();
+  }, [isAdmin, activeTab]);
+
+  const handleRoleChange = async (profile: RegisteredProfile, role: ManagedRole) => {
+    const currentRoles = profileRoles[profile.user_id] ?? [];
+    const shouldAssign = !currentRoles.includes(role);
+    setUpdatingRole(`${profile.user_id}:${role}`);
+
+    const result = shouldAssign
+      ? await supabase.from("user_roles").insert({ user_id: profile.user_id, role })
+      : await supabase.from("user_roles").delete().eq("user_id", profile.user_id).eq("role", role);
+
+    setUpdatingRole(null);
+    if (result.error) {
+      toast({ title: "تعذّر تحديث صلاحية المستخدم", description: result.error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: shouldAssign ? "تمت إضافة الصلاحية" : "تمت إزالة الصلاحية" });
+    await fetchProfiles();
+  };
+
+  const handleAdminSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({ title: "تعذّر تسجيل الخروج", description: error.message, variant: "destructive" });
+      return;
+    }
+    navigate("/");
   };
 
   const uploadImage = async (file: File): Promise<string | null> => {
@@ -198,33 +262,33 @@ const Admin = () => {
     setAdditionalPreviews([]);
   };
 
-  if (!isAdmin) {
+  if (isLoading) {
+    return (
+      <Layout>
+        <section className="py-20 text-center text-muted-foreground">جاري التحقق من الصلاحيات...</section>
+      </Layout>
+    );
+  }
+
+  if (!canManageProducts) {
     return (
       <Layout>
         <section className="py-20">
-          <div className="container mx-auto px-4 max-w-md">
-            <div className="bg-card border border-border rounded-2xl p-8 shadow-warm">
-              <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full gradient-gold text-primary-foreground">
-                <Lock className="w-7 h-7" />
-              </div>
-              <h1 className="text-2xl font-cairo font-bold text-center mb-2">لوحة التحكم</h1>
-              <p className="text-center text-muted-foreground text-sm mb-6">
-                ادخل كلمة سر الأدمن للدخول
-              </p>
-              <form onSubmit={handleUnlock} className="space-y-3">
-                <Input
-                  type="password"
-                  value={pw}
-                  onChange={(e) => setPw(e.target.value)}
-                  placeholder="كلمة السر"
-                  autoFocus
-                  dir="rtl"
-                />
-                <Button type="submit" className="w-full gradient-gold text-primary-foreground font-bold">
-                  دخول
-                </Button>
-              </form>
+          <div className="container mx-auto max-w-md px-4 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full gradient-gold text-primary-foreground">
+              <Lock className="h-7 w-7" />
             </div>
+            <h1 className="mb-2 text-2xl font-cairo font-bold">لوحة التحكم</h1>
+            <p className="mb-6 text-sm text-muted-foreground">
+              {isAuthenticated
+                ? "حسابك لا يملك صلاحية إدارة المنتجات. اطلب من الأدمن تعيينك مشرفًا عامًا."
+                : "سجّل الدخول بحساب المشرف أو الأدمن للوصول إلى لوحة التحكم."}
+            </p>
+            {!isAuthenticated && (
+              <Button asChild className="gradient-gold text-primary-foreground font-bold">
+                <Link to="/login?next=%2Fadmin">تسجيل الدخول</Link>
+              </Button>
+            )}
           </div>
         </section>
       </Layout>
@@ -239,7 +303,7 @@ const Admin = () => {
             <h1 className="text-3xl font-cairo font-bold">
               <span className="text-gradient-gold">لوحة التحكم</span>
             </h1>
-            <Button variant="ghost" size="sm" onClick={() => { lockAdmin(); navigate("/"); }}>
+            <Button variant="ghost" size="sm" onClick={() => void handleAdminSignOut()}>
               <LogOut className="w-4 h-4 ml-1" /> خروج
             </Button>
           </div>
@@ -249,7 +313,99 @@ const Admin = () => {
               <TabsTrigger value="products">المنتجات</TabsTrigger>
               <TabsTrigger value="add">{editingId ? "تعديل منتج" : "إضافة منتج"}</TabsTrigger>
               <TabsTrigger value="offers">العروض</TabsTrigger>
+              {isAdmin && <TabsTrigger value="users">المستخدمون</TabsTrigger>}
             </TabsList>
+
+            {isAdmin && <TabsContent value="users">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  بيانات الحسابات المسجلة المتاحة للأدمن.
+                </p>
+                <Button type="button" variant="outline" size="sm" onClick={() => void fetchProfiles()} disabled={profilesLoading}>
+                  <RefreshCw className={`ml-2 h-4 w-4 ${profilesLoading ? "animate-spin" : ""}`} />
+                  تحديث
+                </Button>
+              </div>
+              {profilesError ? (
+                <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+                  تعذّر تحميل المستخدمين. تأكد من تسجيل الدخول بحساب لديه صلاحية أدمن في Supabase.
+                  <p dir="ltr" className="mt-2 break-all text-xs">{profilesError}</p>
+                </div>
+              ) : profilesLoading ? (
+                <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">
+                  جاري تحميل المستخدمين...
+                </div>
+              ) : profiles.length === 0 ? (
+                <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">
+                  <Users className="mx-auto mb-3 h-8 w-8" />
+                  لا توجد حسابات مسجلة حتى الآن.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>الاسم</TableHead>
+                        <TableHead>البريد الإلكتروني</TableHead>
+                        <TableHead>رقم الهاتف</TableHead>
+                        <TableHead>الصلاحيات</TableHead>
+                        <TableHead>الحالة</TableHead>
+                        <TableHead>تاريخ التسجيل</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {profiles.map((profile) => (
+                        <TableRow key={profile.id}>
+                          <TableCell className="font-medium">{profile.display_name || "—"}</TableCell>
+                          <TableCell dir="ltr" className="text-right">{profile.email || "—"}</TableCell>
+                          <TableCell dir="ltr" className="text-right">{profile.phone || "—"}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-2">
+                              {profileRoles[profile.user_id]?.includes("admin") && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                                  <Shield className="h-3.5 w-3.5" /> أدمن
+                                </span>
+                              )}
+                              {!(profileRoles[profile.user_id] ?? []).some((role) =>
+                                role === "admin" || role === "product_manager" || role === "wholesale"
+                              ) && (
+                                <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                                  قطاعي
+                                </span>
+                              )}
+                              {(["product_manager", "wholesale"] as const).map((role) => {
+                                const assigned = (profileRoles[profile.user_id] ?? []).includes(role);
+                                const roleLabel = role === "product_manager" ? "مشرف عام" : "جملة";
+                                const RoleIcon = role === "product_manager" ? Shield : Tag;
+                                return (
+                                  <Button
+                                    key={role}
+                                    type="button"
+                                    size="sm"
+                                    variant={assigned ? "default" : "outline"}
+                                    disabled={updatingRole !== null}
+                                    onClick={() => void handleRoleChange(profile, role)}
+                                  >
+                                    <RoleIcon className="ml-1 h-3.5 w-3.5" />
+                                    {updatingRole === `${profile.user_id}:${role}` ? "جاري التحديث..." : `${assigned ? "إزالة" : "تعيين"} ${roleLabel}`}
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className={profile.approved ? "text-green-700 dark:text-green-400" : "text-muted-foreground"}>
+                              {profile.approved ? "مفعل" : "بانتظار التفعيل"}
+                            </span>
+                          </TableCell>
+                          <TableCell>{new Date(profile.created_at).toLocaleDateString("ar-EG")}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>}
 
             <TabsContent value="products">
               <div className="mb-4">

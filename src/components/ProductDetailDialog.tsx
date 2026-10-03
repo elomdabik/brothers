@@ -3,6 +3,7 @@ import { MessageCircle, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { getProductWhatsAppUrl } from "@/lib/whatsapp";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useRequireLogin } from "@/hooks/useRequireLogin";
 
 export type Product = {
   id: string;
@@ -34,7 +35,8 @@ interface Props {
 const ProductDetailDialog = ({ product, onClose }: Props) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
-  const { isWholesale, isAdmin } = useAuth();
+  const { canSeeWholesale, isAdmin } = useAuth();
+  const requireLogin = useRequireLogin();
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -119,12 +121,12 @@ const ProductDetailDialog = ({ product, onClose }: Props) => {
                     🛒 شراء: {product.purchase_price}
                   </div>
                 )}
-                {(isAdmin || isWholesale) && product.wholesale_price && (
+                {canSeeWholesale && product.wholesale_price && (
                   <div className="text-sm font-semibold text-accent-foreground bg-accent px-2 py-1 rounded-md whitespace-nowrap">
                     💰 جملة: {product.wholesale_price}
                   </div>
                 )}
-                {!isWholesale && (
+                {(!canSeeWholesale || isAdmin) && (
                   <div className="text-2xl font-bold text-primary whitespace-nowrap">
                     🏷️ بيع: {product.price}
                   </div>
@@ -151,6 +153,7 @@ const ProductDetailDialog = ({ product, onClose }: Props) => {
 
             <a
               href={getProductWhatsAppUrl(product.name)}
+              onClick={requireLogin}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full gradient-gold text-primary-foreground py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-gold hover:opacity-90 transition-opacity"

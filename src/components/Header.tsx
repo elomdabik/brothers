@@ -1,25 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Phone, Settings, ChevronDown, User, Tag, Shield, Search, ShoppingCart, LogIn, Facebook, Youtube, Music2 } from "lucide-react";
+import { Menu, X, Phone, Settings, User, Tag, Shield, Search, ShoppingCart, LogIn, Facebook, Youtube, LogOut } from "lucide-react";
 import { getWhatsAppUrl } from "@/lib/whatsapp";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import Login from "@/pages/Login";
 
 const navLinks = [
   { to: "/", label: "الرئيسية" },
@@ -29,23 +21,18 @@ const navLinks = [
   { to: "/contact", label: "تواصل معنا" },
 ];
 
-type ModeTarget = "wholesale" | "admin";
-
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [pwOpen, setPwOpen] = useState(false);
-  const [pwTarget, setPwTarget] = useState<ModeTarget>("wholesale");
-  const [pw, setPw] = useState("");
+  const [loginOpen, setLoginOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
   const {
+    isAuthenticated,
     isWholesale,
+    isSupervisor,
     isAdmin,
-    unlockWholesale,
-    unlockAdmin,
-    lockWholesale,
-    lockAdmin,
+    authError,
   } = useAuth();
   const { toast } = useToast();
 
@@ -54,6 +41,21 @@ const Header = () => {
     setSearchQuery(params.get("search") ?? "");
   }, [location.search]);
 
+  useEffect(() => {
+    const openLogin = () => {
+      setIsOpen(false);
+      setLoginOpen(true);
+    };
+    window.addEventListener("brothers:open-login", openLogin);
+    return () => window.removeEventListener("brothers:open-login", openLogin);
+  }, []);
+
+  useEffect(() => {
+    if (authError) {
+      toast({ title: "تعذّر تحميل صلاحيات الحساب", description: authError, variant: "destructive" });
+    }
+  }, [authError, toast]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const query = searchQuery.trim();
@@ -61,8 +63,10 @@ const Header = () => {
     setIsOpen(false);
   };
 
-  const currentMode: "retail" | "wholesale" | "admin" = isAdmin
+  const currentMode: "retail" | "wholesale" | "supervisor" | "admin" = isAdmin
     ? "admin"
+    : isSupervisor
+    ? "supervisor"
     : isWholesale
     ? "wholesale"
     : "retail";
@@ -70,131 +74,45 @@ const Header = () => {
   const modeLabel =
     currentMode === "admin"
       ? "وضع الأدمن"
+      : currentMode === "supervisor"
+      ? "المشرف العام"
       : currentMode === "wholesale"
       ? "وضع الجملة"
       : "وضع القطاعي";
 
   const ModeIcon =
-    currentMode === "admin" ? Shield : currentMode === "wholesale" ? Tag : User;
+    currentMode === "admin" || currentMode === "supervisor"
+      ? Shield
+      : currentMode === "wholesale"
+      ? Tag
+      : User;
 
-  const switchToRetail = () => {
-    if (isAdmin) lockAdmin();
-    if (isWholesale) lockWholesale();
-    toast({ title: "تم التبديل إلى وضع القطاعي" });
-  };
-
-  const requestUnlock = (target: ModeTarget) => {
-    setPwTarget(target);
-    setPwOpen(true);
-  };
-
-  const handleSelectWholesale = () => {
-    if (isWholesale && !isAdmin) return;
-    if (isAdmin) lockAdmin();
-    if (isWholesale) {
-      toast({ title: "وضع الجملة مفعل" });
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({ title: "تعذّر تسجيل الخروج", description: error.message, variant: "destructive" });
       return;
     }
-    requestUnlock("wholesale");
+    toast({ title: "تم تسجيل الخروج" });
   };
-
-  const handleSelectAdmin = () => {
-    if (isAdmin) {
-      toast({ title: "وضع الأدمن مفعل" });
-      return;
-    }
-    requestUnlock("admin");
-  };
-
-  const handleUnlock = (e: React.FormEvent) => {
-    e.preventDefault();
-    const ok =
-      pwTarget === "admin" ? unlockAdmin(pw) : unlockWholesale(pw);
-    if (ok) {
-      toast({
-        title:
-          pwTarget === "admin"
-            ? "✓ تم تفعيل وضع الأدمن"
-            : "✓ تم تفعيل وضع الجملة",
-      });
-      setPwOpen(false);
-      setPw("");
-    } else {
-      toast({ title: "كلمة سر خاطئة", variant: "destructive" });
-    }
-  };
-
-  const ModeMenu = ({ onSelect }: { onSelect?: () => void }) => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-            currentMode === "admin"
-              ? "bg-primary text-primary-foreground"
-              : currentMode === "wholesale"
-              ? "bg-accent text-accent-foreground"
-              : "border border-border text-foreground hover:bg-secondary"
-          }`}
-        >
-          <ModeIcon className="w-4 h-4" />
-          {modeLabel}
-          <ChevronDown className="w-4 h-4 opacity-70" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
-        <DropdownMenuItem
-          onClick={() => { switchToRetail(); onSelect?.(); }}
-          className="gap-2"
-        >
-          <User className="w-4 h-4" />
-          <div className="flex-1">
-            <div className="font-semibold">وضع القطاعي</div>
-            <div className="text-xs text-muted-foreground">أسعار البيع للعميل</div>
-          </div>
-          {currentMode === "retail" && <span className="text-primary">✓</span>}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => { handleSelectWholesale(); onSelect?.(); }}
-          className="gap-2"
-        >
-          <Tag className="w-4 h-4" />
-          <div className="flex-1">
-            <div className="font-semibold">وضع الجملة</div>
-            <div className="text-xs text-muted-foreground">أسعار الجملة + البيع</div>
-          </div>
-          {currentMode === "wholesale" && <span className="text-primary">✓</span>}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => { handleSelectAdmin(); onSelect?.(); }}
-          className="gap-2"
-        >
-          <Shield className="w-4 h-4" />
-          <div className="flex-1">
-            <div className="font-semibold">وضع الأدمن</div>
-            <div className="text-xs text-muted-foreground">لوحة التحكم + كل الأسعار</div>
-          </div>
-          {currentMode === "admin" && <span className="text-primary">✓</span>}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
 
   const SocialLinks = () => (
     <div className="flex items-center gap-1" dir="ltr">
-      <Button asChild variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-primary" title="فيسبوك">
+      <Button asChild variant="ghost" size="icon" className="rounded-full bg-[#1877f2]/10 text-[#1877f2] transition-colors hover:bg-[#1877f2] hover:text-white" title="فيسبوك">
         <a href="https://www.facebook.com/thebrothers4you/" target="_blank" rel="noopener noreferrer" aria-label="صفحة معرض الأخوة على فيسبوك">
-          <Facebook />
+          <Facebook className="h-5 w-5" />
         </a>
       </Button>
-      <Button asChild variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-primary" title="تيك توك">
-        <a href="https://www.tiktok.com/" target="_blank" rel="noopener noreferrer" aria-label="تيك توك">
-          <Music2 />
+      <Button asChild variant="ghost" size="icon" className="rounded-full bg-foreground/10 text-foreground transition-colors hover:bg-foreground hover:text-background" title="تيك توك">
+        <a href="https://bit.ly/brothers4you" target="_blank" rel="noopener noreferrer" aria-label="تيك توك">
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.9 2.89 2.89 0 0 1-2.89-2.9 2.89 2.89 0 0 1 2.89-2.89c.3 0 .59.05.87.14v-3.52a6.42 6.42 0 0 0-.87-.06 6.34 6.34 0 1 0 6.33 6.34V8.74a8.18 8.18 0 0 0 4.79 1.54V6.83c-.35 0-.69-.05-1.02-.14Z" />
+          </svg>
         </a>
       </Button>
-      <Button asChild variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-primary" title="يوتيوب">
-        <a href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer" aria-label="يوتيوب">
-          <Youtube />
+      <Button asChild variant="ghost" size="icon" className="rounded-full bg-[#ff0000]/10 text-[#ff0000] transition-colors hover:bg-[#ff0000] hover:text-white" title="يوتيوب">
+        <a href="https://www.youtube.com/@brothers4you" target="_blank" rel="noopener noreferrer" aria-label="قناة معرض الأخوة على يوتيوب">
+          <Youtube className="h-5 w-5" />
         </a>
       </Button>
     </div>
@@ -227,9 +145,19 @@ const Header = () => {
             <Button asChild variant="ghost" className="gap-2">
               <Link to="/cart"><ShoppingCart /> <span className="hidden xl:inline">السلة</span></Link>
             </Button>
-            <Button asChild variant="ghost" className="gap-2">
-              <Link to="/login"><LogIn /> <span className="hidden xl:inline">تسجيل الدخول</span></Link>
-            </Button>
+            {isAuthenticated ? (
+              <Button type="button" variant="ghost" className="gap-2" onClick={() => void handleSignOut()}>
+                <LogOut /> <span className="hidden xl:inline">خروج</span>
+              </Button>
+            ) : (
+              <Button type="button" variant="ghost" className="gap-2" onClick={() => setLoginOpen(true)}>
+                <LogIn /> <span className="hidden xl:inline">تسجيل الدخول</span>
+              </Button>
+            )}
+            <div className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold">
+              <ModeIcon className="h-4 w-4" />
+              <span className="hidden xl:inline">{modeLabel}</span>
+            </div>
             <SocialLinks />
           </div>
 
@@ -242,7 +170,11 @@ const Header = () => {
           <div className="md:hidden container mx-auto px-4 pb-3 flex items-center justify-between border-t border-border pt-2">
             <div className="flex items-center gap-1">
               <Button asChild variant="ghost" size="sm"><Link to="/cart" onClick={() => setIsOpen(false)}><ShoppingCart /> السلة</Link></Button>
-              <Button asChild variant="ghost" size="sm"><Link to="/login" onClick={() => setIsOpen(false)}><LogIn /> الدخول</Link></Button>
+              {isAuthenticated ? (
+                <Button type="button" variant="ghost" size="sm" onClick={() => { setIsOpen(false); void handleSignOut(); }}><LogOut /> خروج</Button>
+              ) : (
+                <Button type="button" variant="ghost" size="sm" onClick={() => { setIsOpen(false); setLoginOpen(true); }}><LogIn /> الدخول</Button>
+              )}
             </div>
             <SocialLinks />
           </div>
@@ -264,7 +196,7 @@ const Header = () => {
                 {link.label}
               </Link>
             ))}
-            {isAdmin && (
+            {(isAdmin || isSupervisor) && (
               <Link
                 to="/admin"
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${
@@ -280,7 +212,10 @@ const Header = () => {
           </nav>
 
           <div className="hidden lg:flex items-center gap-3">
-            <ModeMenu />
+            <div className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold">
+              <ModeIcon className="h-4 w-4" />
+              {modeLabel}
+            </div>
             <a
               href={getWhatsAppUrl()}
               target="_blank"
@@ -311,7 +246,7 @@ const Header = () => {
                 {link.label}
               </Link>
             ))}
-            {isAdmin && (
+            {(isAdmin || isSupervisor) && (
               <Link
                 to="/admin"
                 onClick={() => setIsOpen(false)}
@@ -325,8 +260,9 @@ const Header = () => {
                 لوحة التحكم
               </Link>
             )}
-            <div className="px-1 py-2">
-              <ModeMenu onSelect={() => setIsOpen(false)} />
+            <div className="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-muted-foreground">
+              <ModeIcon className="h-4 w-4" />
+              {modeLabel}
             </div>
             <a
               href={getWhatsAppUrl()}
@@ -340,30 +276,9 @@ const Header = () => {
         )}
       </div>
 
-      <Dialog open={pwOpen} onOpenChange={(o) => { setPwOpen(o); if (!o) setPw(""); }}>
-        <DialogContent dir="rtl" className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>
-              {pwTarget === "admin" ? "تفعيل وضع الأدمن" : "تفعيل وضع الجملة"}
-            </DialogTitle>
-            <DialogDescription>
-              {pwTarget === "admin"
-                ? "ادخل كلمة سر الأدمن للوصول إلى لوحة التحكم وكل الأسعار."
-                : "ادخل كلمة السر للاطلاع على أسعار الجملة بجانب أسعار القطاعي."}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleUnlock} className="space-y-3">
-            <Input
-              type="password"
-              value={pw}
-              onChange={(e) => setPw(e.target.value)}
-              placeholder="كلمة السر"
-              autoFocus
-            />
-            <Button type="submit" className="w-full gradient-gold text-primary-foreground font-bold">
-              فتح
-            </Button>
-          </form>
+      <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
+        <DialogContent dir="rtl" className="max-w-sm max-h-[90vh] overflow-y-auto">
+          <Login embedded onSuccess={() => setLoginOpen(false)} />
         </DialogContent>
       </Dialog>
     </header>
