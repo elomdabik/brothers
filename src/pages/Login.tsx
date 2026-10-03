@@ -26,6 +26,24 @@ const signupSchema = z.object({
   path: ["confirmPassword"],
 });
 
+const getAuthErrorMessage = (error: unknown) => {
+  if (!(error instanceof Error)) return "حصل خطأ غير متوقع. حاول مرة أخرى.";
+
+  const authError = error as Error & { code?: string };
+  switch (authError.code) {
+    case "invalid_credentials":
+      return "البريد الإلكتروني أو كلمة المرور غير صحيحة. تأكد من البيانات أو أنشئ كلمة مرور جديدة.";
+    case "email_not_confirmed":
+      return "يجب تأكيد البريد الإلكتروني من رسالة Supabase قبل تسجيل الدخول.";
+    case "user_banned":
+      return "هذا الحساب موقوف. تواصل مع إدارة الموقع.";
+    case "too_many_requests":
+      return "محاولات كثيرة. انتظر قليلًا ثم حاول مرة أخرى.";
+    default:
+      return authError.message || "تحقق من اتصال الإنترنت وإعدادات Supabase ثم حاول مرة أخرى.";
+  }
+};
+
 type LoginProps = {
   embedded?: boolean;
   onSuccess?: () => void;
@@ -42,10 +60,12 @@ const Login = ({ embedded = false, onSuccess }: LoginProps) => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     setBusy(true);
     if (mode === "signin") {
       const parsedEmail = z.string().trim().email().safeParse(email);
@@ -54,11 +74,24 @@ const Login = ({ embedded = false, onSuccess }: LoginProps) => {
         toast({ title: "راجع بيانات الدخول", description: "أدخل بريدًا إلكترونيًا صحيحًا وكلمة المرور.", variant: "destructive" });
         return;
       }
-      const { error } = await supabase.auth.signInWithPassword({ email: parsedEmail.data, password });
-      setBusy(false);
-      if (error) {
-        toast({ title: "تعذّر تسجيل الدخول", description: error.message, variant: "destructive" });
+      try {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: parsedEmail.data.toLowerCase(),
+          password,
+        });
+        if (error) {
+          const message = getAuthErrorMessage(error);
+          setFormError(message);
+          toast({ title: "تعذّر تسجيل الدخول", description: message, variant: "destructive" });
+          return;
+        }
+      } catch (error: unknown) {
+        const message = getAuthErrorMessage(error);
+        setFormError(message);
+        toast({ title: "تعذّر الاتصال بخدمة تسجيل الدخول", description: message, variant: "destructive" });
         return;
+      } finally {
+        setBusy(false);
       }
       if (onSuccess) {
         onSuccess();
@@ -69,26 +102,38 @@ const Login = ({ embedded = false, onSuccess }: LoginProps) => {
       const parsed = signupSchema.safeParse({ displayName, email, phone, password, confirmPassword });
       if (!parsed.success) {
         setBusy(false);
-        toast({ title: "راجع بيانات الحساب", description: parsed.error.issues[0]?.message ?? "البيانات غير صحيحة", variant: "destructive" });
+        const message = parsed.error.issues[0]?.message ?? "البيانات غير صحيحة";
+        setFormError(message);
+        toast({ title: "راجع بيانات الحساب", description: message, variant: "destructive" });
         return;
       }
-      const { error } = await supabase.auth.signUp({
-        email: parsed.data.email,
-        password: parsed.data.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}${next}`,
-          data: {
-            display_name: parsed.data.displayName,
-            phone: parsed.data.phone,
+      try {
+        const { error } = await supabase.auth.signUp({
+          email: parsed.data.email.toLowerCase(),
+          password: parsed.data.password,
+          options: {
+            emailRedirectTo: `${window.location.origin}${next}`,
+            data: {
+              display_name: parsed.data.displayName,
+              phone: parsed.data.phone,
+            },
           },
-        },
-      });
-      setBusy(false);
-      if (error) {
-        toast({ title: "تعذّر إنشاء الحساب", description: error.message, variant: "destructive" });
+        });
+        if (error) {
+          const message = getAuthErrorMessage(error);
+          setFormError(message);
+          toast({ title: "تعذّر إنشاء الحساب", description: message, variant: "destructive" });
+          return;
+        }
+        toast({ title: "تم إرسال رسالة التأكيد إلى بريدك" });
+      } catch (error: unknown) {
+        const message = getAuthErrorMessage(error);
+        setFormError(message);
+        toast({ title: "تعذّر الاتصال بخدمة التسجيل", description: message, variant: "destructive" });
         return;
+      } finally {
+        setBusy(false);
       }
-      toast({ title: "تم إرسال رسالة التأكيد إلى بريدك" });
     }
   };
 
@@ -163,6 +208,11 @@ const Login = ({ embedded = false, onSuccess }: LoginProps) => {
             required
           />
         )}
+        {formError && (
+          <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+            {formError}
+          </p>
+        )}
         <Button
           type="submit"
           disabled={busy}
@@ -174,7 +224,10 @@ const Login = ({ embedded = false, onSuccess }: LoginProps) => {
       <Button
         type="button"
         variant="ghost"
-        onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+        onClick={() => {
+          setFormError(null);
+          setMode(mode === "signin" ? "signup" : "signin");
+        }}
         className="w-full text-sm text-muted-foreground hover:text-foreground"
       >
         {mode === "signin" ? "ليس لديك حساب؟ إنشاء حساب" : "لديك حساب؟ تسجيل الدخول"}
