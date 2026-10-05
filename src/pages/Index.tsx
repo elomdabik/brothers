@@ -11,7 +11,7 @@ import OffersSection from "@/components/OffersSection";
 import type { Product } from "@/components/ProductDetailDialog";
 import { useNavigate } from "react-router-dom";
 import { useRequireLogin } from "@/hooks/useRequireLogin";
-import { useAuth } from "@/hooks/useAuth";
+import { useCurrentPriceView } from "@/hooks/usePriceView";
 
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.12 } } };
 const fadeUp = {
@@ -49,7 +49,7 @@ const ProductsCarousel = ({ products, onProductClick }: { products: Product[]; o
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const requireLogin = useRequireLogin();
-  const { canSeeWholesale } = useAuth();
+  const { showWholesalePrices } = useCurrentPriceView();
 
   const updateScrollState = () => {
     const el = scrollRef.current;
@@ -113,7 +113,7 @@ const ProductsCarousel = ({ products, onProductClick }: { products: Product[]; o
                 )}
                 <div className="flex items-center justify-between">
                   <span className="text-xl font-bold text-primary">
-                    {canSeeWholesale ? (p.wholesale_price || p.price) : p.price}
+                    {showWholesalePrices ? (p.wholesale_price || p.price) : p.price}
                   </span>
                 </div>
               </div>

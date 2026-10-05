@@ -3,6 +3,7 @@ import { MessageCircle, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { getProductWhatsAppUrl } from "@/lib/whatsapp";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useCurrentPriceView } from "@/hooks/usePriceView";
 import { useRequireLogin } from "@/hooks/useRequireLogin";
 
 export type Product = {
@@ -35,7 +36,8 @@ interface Props {
 const ProductDetailDialog = ({ product, onClose }: Props) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
-  const { canSeeWholesale, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
+  const { showWholesalePrices } = useCurrentPriceView();
   const requireLogin = useRequireLogin();
 
   const handleOpenChange = (open: boolean) => {
@@ -121,12 +123,12 @@ const ProductDetailDialog = ({ product, onClose }: Props) => {
                     🛒 شراء: {product.purchase_price}
                   </div>
                 )}
-                {canSeeWholesale && product.wholesale_price && (
+                {showWholesalePrices && product.wholesale_price && (
                   <div className="text-sm font-semibold text-accent-foreground bg-accent px-2 py-1 rounded-md whitespace-nowrap">
                     💰 جملة: {product.wholesale_price}
                   </div>
                 )}
-                {(!canSeeWholesale || isAdmin) && (
+                {(!showWholesalePrices || isAdmin) && (
                   <div className="text-2xl font-bold text-primary whitespace-nowrap">
                     🏷️ بيع: {product.price}
                   </div>

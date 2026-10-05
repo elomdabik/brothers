@@ -6,14 +6,14 @@ import { getProductWhatsAppUrl } from "@/lib/whatsapp";
 import { getProducts } from "@/services/db/products";
 import Layout from "@/components/Layout";
 import type { Product } from "@/components/ProductDetailDialog";
-import { useAuth } from "@/hooks/useAuth";
+import { useCurrentPriceView } from "@/hooks/usePriceView";
 import { useRequireLogin } from "@/hooks/useRequireLogin";
 
 const Products = () => {
   const [selectedCat, setSelectedCat] = useState("الكل");
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { canSeeWholesale } = useAuth();
+  const { showWholesalePrices } = useCurrentPriceView();
   const requireLogin = useRequireLogin();
 
   const { data: productsData = [] } = useQuery({
@@ -94,9 +94,9 @@ const Products = () => {
                   {p.sizes && <p className="text-xs text-muted-foreground mb-3">📐 {p.sizes}</p>}
                   <div className="flex items-center justify-between">
                     <span className="text-xl font-bold text-primary">
-                      {canSeeWholesale ? (p.wholesale_price || p.price) : p.price}
+                      {showWholesalePrices ? (p.wholesale_price || p.price) : p.price}
                     </span>
-                    {canSeeWholesale && <span className="text-xs text-muted-foreground">جملة</span>}
+                    {showWholesalePrices && <span className="text-xs text-muted-foreground">جملة</span>}
                   </div>
                   <a
                     href={getProductWhatsAppUrl(p.name)}

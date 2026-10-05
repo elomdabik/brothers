@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, Phone, Settings, User, Tag, Shield, Search, ShoppingCart, LogIn, Facebook, Youtube, LogOut } from "lucide-react";
 import { getWhatsAppUrl } from "@/lib/whatsapp";
 import { useAuth } from "@/hooks/useAuth";
+import { usePriceView } from "@/hooks/usePriceView";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -34,6 +35,7 @@ const Header = () => {
     isAdmin,
     authError,
   } = useAuth();
+  const { priceView, togglePriceView, canToggle } = usePriceView();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -158,6 +160,17 @@ const Header = () => {
               <ModeIcon className="h-4 w-4" />
               <span className="hidden xl:inline">{modeLabel}</span>
             </div>
+            {canToggle && (
+              <button
+                type="button"
+                onClick={togglePriceView}
+                className="flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+                aria-label={priceView === "wholesale" ? "التبديل إلى عرض القطاعي" : "التبديل إلى عرض الجملة"}
+              >
+                <Tag className="h-4 w-4" />
+                <span>{priceView === "wholesale" ? "جملة" : "قطاعي"}</span>
+              </button>
+            )}
             <SocialLinks />
           </div>
 
@@ -216,6 +229,17 @@ const Header = () => {
               <ModeIcon className="h-4 w-4" />
               {modeLabel}
             </div>
+            {canToggle && (
+              <button
+                type="button"
+                onClick={togglePriceView}
+                className="flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+                aria-label={priceView === "wholesale" ? "التبديل إلى عرض القطاعي" : "التبديل إلى عرض الجملة"}
+              >
+                <Tag className="h-4 w-4" />
+                {priceView === "wholesale" ? "عرض الجملة" : "عرض القطاعي"}
+              </button>
+            )}
             <a
               href={getWhatsAppUrl()}
               target="_blank"
@@ -264,6 +288,18 @@ const Header = () => {
               <ModeIcon className="h-4 w-4" />
               {modeLabel}
             </div>
+            {canToggle && (
+              <button
+                type="button"
+                onClick={() => {
+                  togglePriceView();
+                  setIsOpen(false);
+                }}
+                className="block w-full border border-border bg-secondary px-4 py-3 rounded-lg text-sm font-semibold text-foreground text-center transition-colors hover:bg-muted"
+              >
+                {priceView === "wholesale" ? "التبديل إلى القطاعي" : "التبديل إلى الجملة"}
+              </button>
+            )}
             <a
               href={getWhatsAppUrl()}
               target="_blank"

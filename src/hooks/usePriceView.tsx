@@ -60,6 +60,18 @@ export const PriceViewProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+export const useCurrentPriceView = () => {
+  const { priceView, canToggle } = usePriceView();
+  const { canSeeWholesale } = useAuth();
+
+  return {
+    priceView,
+    canToggle,
+    showWholesalePrices: canToggle ? priceView === "wholesale" : canSeeWholesale,
+    showRetailPrices: canToggle ? priceView === "retail" : !canSeeWholesale,
+  };
+};
+
 export const usePriceView = () => {
   const ctx = useContext(PriceViewContext);
   if (!ctx) throw new Error("usePriceView must be used within PriceViewProvider");

@@ -6,6 +6,7 @@ import { getProductById, getSimilarProducts } from "@/services/db/products";
 import { getProductWhatsAppUrl } from "@/lib/whatsapp";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/hooks/useAuth";
+import { useCurrentPriceView } from "@/hooks/usePriceView";
 import { useRequireLogin } from "@/hooks/useRequireLogin";
 import { Button } from "@/components/ui/button";
 
@@ -35,7 +36,8 @@ const getAllImages = (p: Product) => {
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { canSeeWholesale, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
+  const { showWholesalePrices } = useCurrentPriceView();
   const requireLogin = useRequireLogin();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
@@ -162,12 +164,12 @@ const ProductDetail = () => {
                     🛒 سعر الشراء: {product.purchase_price}
                   </div>
                 )}
-                {canSeeWholesale && product.wholesale_price && (
+                {showWholesalePrices && product.wholesale_price && (
                   <div className="text-base font-semibold text-accent-foreground bg-accent px-3 py-2 rounded-md">
                     💰 سعر الجملة: {product.wholesale_price}
                   </div>
                 )}
-                {!canSeeWholesale && (
+                {!showWholesalePrices && (
                   <div className="text-3xl font-bold text-primary">
                     🏷️ {product.price}
                   </div>
@@ -236,7 +238,7 @@ const ProductDetail = () => {
                     <div className="p-4">
                       <h3 className="font-bold text-sm mb-2 line-clamp-2">{p.name}</h3>
                       <span className="text-lg font-bold text-primary">
-                        {canSeeWholesale ? (p.wholesale_price || p.price) : p.price}
+                        {showWholesalePrices ? (p.wholesale_price || p.price) : p.price}
                       </span>
                     </div>
                   </Link>
