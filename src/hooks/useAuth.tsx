@@ -17,6 +17,38 @@ type AuthContextType = {
   canManageProducts: boolean;
 };
 
+const getErrorMessage = (error: unknown) => {
+  if (error == null) return "";
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+
+  const candidate = error as {
+    message?: unknown;
+    details?: unknown;
+    hint?: unknown;
+    code?: unknown;
+  };
+
+  return [candidate.message, candidate.details, candidate.hint]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .trim();
+};
+
+const isMissingTableError = (error: unknown) => {
+  const message = getErrorMessage(error).toLowerCase();
+  const code = typeof error === "object" && error && "code" in error ? String((error as { code?: unknown }).code ?? "") : "";
+
+  return (
+    code === "PGRST205" ||
+    code === "42P01" ||
+    message.includes("could not find the table") ||
+    message.includes("does not exist") ||
+    message.includes("schema cache") ||
+    (message.includes("relation") && message.includes("does not exist"))
+  );
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -79,7 +111,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (error) {
           console.error("[auth] failed to load user roles", error);
           setRoles([]);
-          setAuthError(error.message);
+          if (isMissingTableError(error)) {
+            setAuthError(null);
+            console.warn("[auth] user_roles table missing; treating as unauthenticated for roles");
+          } else {
+            setAuthError(getErrorMessage(error) || "تعذّر تحميل صلاحيات الحساب");
+          }
           setRolesLoading(false);
           return;
         }
@@ -89,7 +126,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!active) return;
         console.error("[auth] failed to load user roles", error);
         setRoles([]);
-        setAuthError("تعذّر تحميل صلاحيات الحساب");
+        if (isMissingTableError(error)) {
+          setAuthError(null);
+          console.warn("[auth] user_roles table missing; treating as unauthenticated for roles");
+        } else {
+          setAuthError("تعذّر تحميل صلاحيات الحساب");
+        }
         setRolesLoading(false);
       });
 

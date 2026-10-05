@@ -40,6 +40,13 @@ type RegisteredProfile = {
 type ManagedRole = "product_manager" | "wholesale";
 type AppRole = Database["public"]["Enums"]["app_role"];
 
+const isMissingTableError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const code = typeof error === "object" && error && "code" in error ? String((error as { code?: unknown }).code ?? "") : "";
+
+  return code === "PGRST205" || code === "42P01" || message.toLowerCase().includes("could not find the table") || message.toLowerCase().includes("does not exist");
+};
+
 const emptyProduct = { name: "", category: "", price: "", purchase_price: "", wholesale_price: "", benefits: "", sizes: "", image_url: "", internal_code: "", international_code: "", specifications: "" };
 
 const Admin = () => {
@@ -82,7 +89,11 @@ const Admin = () => {
     setProfilesLoading(false);
     if (profilesResult.error || rolesResult.error) {
       const error = profilesResult.error ?? rolesResult.error;
-      setProfilesError(error.message);
+      if (isMissingTableError(error)) {
+        setProfilesError("جدول صلاحيات المستخدمين غير مهيأ في قاعدة البيانات. بعض الصلاحيات غير متاحة مؤقتًا.");
+      } else {
+        setProfilesError(error.message);
+      }
       return;
     }
     setProfiles(profilesResult.data ?? []);
