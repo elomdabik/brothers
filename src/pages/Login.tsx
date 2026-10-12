@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -231,6 +231,16 @@ const Login = ({ embedded = false, onSuccess }: LoginProps) => {
           {mode === "signin" ? "دخول" : "إنشاء الحساب"}
         </Button>
       </form>
+      {mode === "signin" && (
+        <div className="text-center">
+          <Link
+            to="/forgot-password"
+            className="text-xs text-muted-foreground hover:text-primary transition-colors underline underline-offset-4"
+          >
+            نسيت كلمة المرور؟
+          </Link>
+        </div>
+      )}
       <Button
         type="button"
         variant="ghost"

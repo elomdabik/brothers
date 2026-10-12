@@ -19,6 +19,8 @@ import Admin from "./pages/Admin";
 import Login from "./pages/Login";
 import OAuthConsent from "./pages/OAuthConsent";
 import Cart from "./pages/Cart";
+import ForgotPassword from "./pages/ForgotPassword";
+import ChangePassword from "./pages/ChangePassword";
 import NotFound from "./pages/NotFound";
 
 const App = () => {
@@ -65,6 +67,8 @@ const App = () => {
                   <Route path="/admin" element={<Admin />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/cart" element={<Cart />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/change-password" element={<ChangePassword />} />
                   <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>

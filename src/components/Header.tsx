@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Phone, Settings, User, Tag, Shield, Search, ShoppingCart, LogIn, Facebook, Youtube, LogOut } from "lucide-react";
+import { Menu, X, Phone, Settings, User, Tag, Shield, Search, ShoppingCart, LogIn, Facebook, Youtube, LogOut, Share2, KeyRound } from "lucide-react";
 import { getWhatsAppUrl } from "@/lib/whatsapp";
 import { useAuth } from "@/hooks/useAuth";
 import { usePriceView } from "@/hooks/usePriceView";
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import Login from "@/pages/Login";
+import ShareDialog from "@/components/ShareDialog";
 
 const navLinks = [
   { to: "/", label: "الرئيسية" },
@@ -148,9 +149,17 @@ const Header = () => {
               <Link to="/cart"><ShoppingCart /> <span className="hidden xl:inline">السلة</span></Link>
             </Button>
             {isAuthenticated ? (
-              <Button type="button" variant="ghost" className="gap-2" onClick={() => void handleSignOut()}>
-                <LogOut /> <span className="hidden xl:inline">خروج</span>
-              </Button>
+              <>
+                <Button asChild variant="ghost" className="gap-2" title="تغيير كلمة المرور">
+                  <Link to="/change-password">
+                    <KeyRound className="h-4 w-4" />
+                    <span className="hidden xl:inline">تغيير الباسورد</span>
+                  </Link>
+                </Button>
+                <Button type="button" variant="ghost" className="gap-2" onClick={() => void handleSignOut()}>
+                  <LogOut /> <span className="hidden xl:inline">خروج</span>
+                </Button>
+              </>
             ) : (
               <Button type="button" variant="ghost" className="gap-2" onClick={() => setLoginOpen(true)}>
                 <LogIn /> <span className="hidden xl:inline">تسجيل الدخول</span>
@@ -171,6 +180,19 @@ const Header = () => {
                 <span>{priceView === "wholesale" ? "جملة" : "قطاعي"}</span>
               </button>
             )}
+            <ShareDialog
+              trigger={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 rounded-full border-primary/40 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground font-semibold"
+                  title="مشاركة التطبيق"
+                >
+                  <Share2 className="h-4 w-4" />
+                  <span className="hidden xl:inline">مشاركة</span>
+                </Button>
+              }
+            />
             <SocialLinks />
           </div>
 
@@ -188,6 +210,14 @@ const Header = () => {
               ) : (
                 <Button type="button" variant="ghost" size="sm" onClick={() => { setIsOpen(false); setLoginOpen(true); }}><LogIn /> الدخول</Button>
               )}
+              <ShareDialog
+                trigger={
+                  <Button variant="outline" size="sm" className="gap-1 rounded-full border-primary/40 text-primary text-xs">
+                    <Share2 className="h-3.5 w-3.5" />
+                    مشاركة
+                  </Button>
+                }
+              />
             </div>
             <SocialLinks />
           </div>
