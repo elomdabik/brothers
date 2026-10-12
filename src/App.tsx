@@ -29,20 +29,25 @@ const App = () => {
 
   useEffect(() => {
     let cancelled = false;
-    initSqlite()
-      .then(() => {
+
+    const bootstrapDb = async () => {
+      try {
+        await initSqlite();
         if (cancelled) return;
         setDbReady(true);
         wireAutoSync();
         void syncAll();
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error("[db] init failed", err);
         if (!cancelled) {
-          setDbError(err?.message ?? "DB init failed");
-          setDbReady(true);
+          setDbError(err instanceof Error ? err.message : "DB init failed");
+          setDbReady(false);
         }
-      });
+      }
+    };
+
+    void bootstrapDb();
+
     return () => {
       cancelled = true;
     };
@@ -73,11 +78,11 @@ const App = () => {
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               ) : (
-                <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-                  جاري التحميل...
+                <div className="min-h-screen flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                  <span>{dbError ? `تعذّر تهيئة التخزين المحلي: ${dbError}` : "جاري التحميل..."}</span>
                 </div>
               )}
-              {dbError && (
+              {dbError && dbReady && (
                 <div className="fixed bottom-3 left-3 right-3 bg-destructive text-destructive-foreground text-xs px-3 py-2 rounded shadow-lg z-50">
                   تعذّر تهيئة التخزين المحلي: {dbError}
                 </div>

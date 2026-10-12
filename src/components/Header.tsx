@@ -314,6 +314,16 @@ const Header = () => {
                 لوحة التحكم
               </Link>
             )}
+            {isAuthenticated && (
+              <Link
+                to="/change-password"
+                onClick={() => setIsOpen(false)}
+                className="px-4 py-3 rounded-lg text-sm font-medium text-foreground hover:bg-secondary flex items-center gap-2"
+              >
+                <KeyRound className="w-4 h-4 text-primary" />
+                تغيير كلمة المرور
+              </Link>
+            )}
             <div className="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-muted-foreground">
               <ModeIcon className="h-4 w-4" />
               {modeLabel}
